@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>Financial | متابعة مبيعات الفروع</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2954e6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Financial">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232954e6'/%3E%3Ctext x='32' y='45' font-size='30' text-anchor='middle' fill='%23fff' font-family='Arial'%3EF%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#ffffff; --text:#182131; --muted:#67728a; --border:#e6e9f0;
+  --accent:#2954e6; --accent-dark:#1c3fb8; --accent-2:#0aa06e; --accent-3:#e08a00; --danger:#d92d20;
+  --input-bg:#ffffff; --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);
+  --today:#fff7e0; --chip:#eef1fb; --sidebar-bg:#111a2e; --sidebar-bg-2:#182541;
+  --sidebar-text:#c4cbdc; --sidebar-active:#2954e6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1117; --card:#151b26; --text:#e7ebf3; --muted:#8a94a8; --border:#262f3d;
+    --input-bg:#0d1117; --shadow:0 1px 3px rgba(0,0,0,.5); --today:#2e2711; --chip:#1b2233;
+    --sidebar-bg:#0a0f1c; --sidebar-bg-2:#111a2e;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1117; --card:#151b26; --text:#e7ebf3; --muted:#8a94a8; --border:#262f3d;
+  --input-bg:#0d1117; --shadow:0 1px 3px rgba(0,0,0,.5); --today:#2e2711; --chip:#1b2233;
+  --sidebar-bg:#0a0f1c; --sidebar-bg-2:#111a2e;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text); font-family:'Cairo',system-ui,sans-serif;
+  min-height:100vh; -webkit-font-smoothing:antialiased; font-size:14px;
+}
+h1,h2,h3,h4{margin:0 0 4px;}
+.muted{color:var(--muted);}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.spacer{flex:1;}
+button{
+  font-family:inherit;cursor:pointer;border:none;border-radius:9px;padding:9px 15px;
+  font-size:13.5px;font-weight:600;background:var(--accent);color:#fff;transition:.15s;
+}
+button:hover{background:var(--accent-dark);}
+button.secondary{background:var(--chip);color:var(--text);}
+button.secondary:hover{filter:brightness(0.96);background:var(--chip);}
+button.ghost{background:transparent;color:var(--accent);padding:6px 8px;}
+button.ghost:hover{background:var(--chip);}
+button.danger{background:var(--danger);}
+button.danger:hover{filter:brightness(1.1);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+button:disabled:hover{background:var(--chip);filter:none;}
+input[type=text],input[type=password],input[type=number],input[type=email],select,textarea{
+  font-family:inherit;background:var(--input-bg);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;padding:9px 12px;font-size:13.5px;outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(41,84,230,.12);}
+input[type=number]{
+  -moz-appearance:textfield;-webkit-appearance:none;appearance:none;
+}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0;
+}
+input[type=number]::-ms-clear{display:none;}
+body{-webkit-tap-highlight-color:transparent;}
+button{touch-action:manipulation;}
+@media(max-width:520px){
+  input[type=text],input[type=password],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px;}
+  .grid-wrap table{min-width:760px;}
+}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* ---- shell layout ---- */
+.shell{display:flex;min-height:100vh;align-items:stretch;}
+.sidebar{
+  width:250px;flex-shrink:0;background:linear-gradient(180deg,var(--sidebar-bg),var(--sidebar-bg-2));
+  color:var(--sidebar-text);padding:22px 16px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;
+}
+.sidebar .brandline{display:flex;align-items:center;gap:10px;color:#fff;font-weight:800;font-size:16px;padding:0 6px 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px;}
+.sidebar .brandline .logoicon{width:34px;height:34px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.navlink{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--sidebar-text);font-weight:600;font-size:13.5px;cursor:pointer;background:transparent;border:none;width:100%;text-align:right;font-family:inherit;}
+.navlink:hover{background:rgba(255,255,255,.06);color:#fff;}
+.navlink.active{background:var(--sidebar-active);color:#fff;}
+.navlink .ic{width:18px;text-align:center;flex-shrink:0;}
+.sidebar .sidefoot{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
+.sidebar .whoami{padding:8px 6px;font-size:12px;color:#8ea0c9;}
+.sidebar .whoami b{color:#fff;display:block;font-size:13.5px;}
+.main{flex:1;min-width:0;padding:26px 28px;}
+.main-inner{max-width:1280px;margin:0 auto;}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+.topbar h2{font-size:19px;}
+@media(max-width:860px){
+  .shell{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:relative;flex-direction:row;overflow-x:auto;padding:12px;align-items:center;}
+  .sidebar .brandline{border:none;margin:0;padding:0 10px 0 0;}
+  .sidebar .sidefoot{margin:0;padding:0 0 0 6px;border:none;display:flex;align-items:center;}
+  .sidebar .whoami{display:none;}
+  .navlink{width:auto;white-space:nowrap;}
+  .main{padding:16px;}
+}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:20px;margin-bottom:16px;}
+.tabbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.tabbar button{background:var(--chip);color:var(--text);}
+.tabbar button.active{background:var(--accent);color:#fff;}
+
+.month-nav{display:flex;align-items:center;gap:8px;background:var(--chip);border-radius:10px;padding:4px;}
+.month-nav button{background:transparent;color:var(--text);padding:5px 12px;font-size:15px;border-radius:7px;}
+.month-nav button:hover{background:var(--card);}
+.month-nav .label{font-weight:800;min-width:120px;text-align:center;font-size:13.5px;}
+
+.grid-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:12.5px;}
+th,td{border:1px solid var(--border);padding:0;text-align:center;}
+th{background:var(--chip);position:sticky;top:0;z-index:2;padding:8px 4px;font-weight:700;}
+td.method-cell{background:var(--card);position:sticky;right:0;z-index:1;text-align:center;padding:8px 12px;font-weight:800;white-space:nowrap;min-width:170px;font-size:14.5px;}
+th.method-head{position:sticky;right:0;z-index:3;text-align:center;padding:8px 12px;min-width:170px;font-size:14.5px;}
+td.day-cell{position:relative;min-width:80px;}
+td.day-cell.today, th.day-head.today{background:var(--today);}
+td.day-cell.sel, th.day-head.sel{background:#e6eeff;}
+.net-row td.sel{background:#d9e3ff;}
+@media (prefers-color-scheme:dark){
+  td.day-cell.sel, th.day-head.sel{background:#17203a;}
+  .net-row td.sel{background:#1f2a45;}
+}
+:root[data-theme="dark"] td.day-cell.sel, :root[data-theme="dark"] th.day-head.sel{background:#17203a;}
+:root[data-theme="dark"] .net-row td.sel{background:#1f2a45;}
+td.day-cell input{
+  width:100%;height:100%;border:none;background:transparent;text-align:center;padding:9px 4px;
+  color:var(--text);font-size:15px;font-weight:800;border-radius:0;font-family:inherit;direction:ltr;
+}
+td.day-cell input:focus{background:var(--card);box-shadow:inset 0 0 0 2px var(--accent);border-radius:6px;}
+td.day-cell .num-view{font-size:15px;font-weight:800;direction:ltr;padding:9px 4px;display:inline-block;}
+.money{font-weight:800;direction:ltr;}
+.dn-inv-box,.dn-note-box{display:inline-block;border:1px solid var(--border);border-radius:9px;padding:9px 12px;background:var(--input-bg);font-size:13.5px;}
+.dn-inv-box{flex:0 0 130px;font-weight:700;text-align:center;direction:ltr;}
+.dn-note-box{flex:1;min-width:0;}
+.note-dot{position:absolute;top:2px;left:2px;width:7px;height:7px;border-radius:50%;background:var(--accent-3);}
+.net-row td, .net-row th{background:var(--chip);font-weight:800;font-size:14.5px;}
+.net-row td:not(.method-cell){direction:ltr;}
+.day-head-inner{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.day-num{font-size:13.5px;}
+.day-name{font-size:9.5px;color:var(--muted);font-weight:500;}
+.head-actions{display:flex;gap:2px;}
+.icon-btn{background:none;border:none;padding:2px 3px;font-size:11px;color:var(--muted);cursor:pointer;position:relative;border-radius:5px;}
+.icon-btn:hover{background:var(--card);}
+.icon-btn.has{color:var(--accent);font-weight:800;}
+.icon-count{position:absolute;top:-5px;left:-6px;background:var(--accent);color:#fff;border-radius:50%;font-size:8.5px;width:13px;height:13px;line-height:13px;}
+.hint{font-size:12px;color:var(--muted);margin:0 0 12px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(10,14,22,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;}
+.modal{background:var(--card);border-radius:16px;padding:22px;max-width:460px;width:100%;box-shadow:var(--shadow);max-height:85vh;overflow:auto;}
+
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;}
+.kpi .box{background:var(--chip);border-radius:12px;padding:16px;border:1px solid var(--border);}
+.kpi .box .num{font-size:23px;font-weight:800;direction:ltr;}
+.kpi .box .lbl{font-size:11.5px;color:var(--muted);margin-top:3px;}
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+@media(max-width:800px){.two-col{grid-template-columns:1fr;}}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.list-item:last-child{border-bottom:none;}
+.alert-pill{background:#fde8e6;color:var(--danger);padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;}
+.ok-pill{background:#e2f6ee;color:var(--accent-2);padding:4px 12px;border-radius:20px;font-size:12.5px;font-weight:700;display:inline-block;}
+@media (prefers-color-scheme:dark){.alert-pill{background:#3a1f1f;} .ok-pill{background:#0f2e22;}}
+:root[data-theme="dark"] .alert-pill{background:#3a1f1f;} :root[data-theme="dark"] .ok-pill{background:#0f2e22;}
+.file-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--chip);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:12px;}
+.badge{background:var(--chip);color:var(--accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+
+.login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 30% 20%, rgba(41,84,230,.10), transparent 55%), var(--bg);}
+.login-wrap{max-width:420px;width:100%;}
+.login-logo{width:52px;height:52px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px;}
+.err{color:var(--danger);font-size:12.5px;margin-top:6px;}
+.select-branch{min-width:180px;}
+.loading-msg{text-align:center;padding:80px 20px;color:var(--muted);}
+::-webkit-scrollbar{height:10px;width:10px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+.tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;background:var(--chip);color:var(--muted);font-weight:700;}
+.tag.green{background:#e2f6ee;color:var(--accent-2);}
+.tag.gray{background:var(--chip);color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading-msg">جاري التحميل…</div></div>
+
+<script>
+/* ======================= DATA CONSTANTS ======================= */
+const BRANCHES = ["CST","GEN","MOK","ALX3","ARK","BSF","DMT","FYM","GSR","HDH","HDQ","HLW","HRM","ISM","LBN","MDI","MHL","MNS","OCT2","RH2","SBR","SHB","SNZ","SSH2","SSH3","SUZ","TNT1","ZQZ","ZTN","ALX2","CIT","ARB","MOE"];
+const PAYMENT_METHODS = ["Cash Store","VISA BM","VISA Ahly","VISA AAIB","Aman Sales","Sprite","Beyti","BLU AI","Card 2030","First Class","forsa","Khazna","kliver","MOE Coupons","Mogo","Mondelez","Mylo","Orange","Orange Friday","Paymob Accept Card","Paymob Visa","Premium Card Under Collection","QNB Coupons","Rise","Sales Egypt Post","Sales Jotun","Sales Value","Sales Wadi Degla","Heidelberg","Etisalat","Coca Cola","Sales_Contact","Seven","Souhoola Sales","Sympl Sales","Tru","VISA QNB","Vodafone cash","Vodafone_Alex bank","We gold","We Vouchers","WePoint","مرتجع اونلاين مانيوال"];
+const WEEKDAYS_AR = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const FINANCE_USER = "finance";
+const ADMIN_USER = "admin";
+const CHART_COLORS = ["#2954e6","#0aa06e","#e08a00","#d92d20","#7048e8","#15aabf","#e8590c","#37b24d","#f06595","#4263eb","#0ca678","#fab005"];
+
+/* ======================= FIREBASE CONFIG (شغّل الربط والحفظ المشترك بين كل الأجهزة) ======================= */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCOByUCzzgHc09YbIPKDy_C6Z27A0atbTY",
+  authDomain: "financial-16678.firebaseapp.com",
+  projectId: "financial-16678",
+  storageBucket: "financial-16678.firebasestorage.app",
+  messagingSenderId: "340478983554",
+  appId: "1:340478983554:web:32212f7ee653291c35e39b"
+};
+
+/* ======================= STATE ======================= */
+let db = null, assetsApi = null, downloadsApi = null;
+let currentUser = null; // {type:'branch'|'finance'|'admin', code}
+const today = new Date();
+const CUR_YEAR = today.getFullYear();
+const CUR_MONTH = today.getMonth()+1;
+const TODAY_DAY = today.getDate();
+
+function dayKey(d){ return String(d).padStart(2,"0"); }
+function monthKeyOf(y,m){ return y + "-" + String(m).padStart(2,"0"); }
+function daysInMonthOf(y,m){ return new Date(y, m, 0).getDate(); }
+function monthLabel(y,m){ return MONTHS_AR[m-1] + " " + y; }
+function isCurrentMonth(y,m){ return y===CUR_YEAR && m===CUR_MONTH; }
+function isPastOrCurrent(y,m){ return (y<CUR_YEAR) || (y===CUR_YEAR && m<=CUR_MONTH); }
+function shiftMonth(y,m,delta){
+  let mm = m + delta, yy = y;
+  if(mm<1){ mm=12; yy--; } else if(mm>12){ mm=1; yy++; }
+  return [yy,mm];
+}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escJs(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+function fmtNum(n){ const v = Number(n)||0; return v.toLocaleString("en-US"); }
+
+function weakHash(text){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i=0;i<text.length;i++){
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return "s1:" + (h2>>>0).toString(16).padStart(8,"0") + (h1>>>0).toString(16).padStart(8,"0");
+}
+async function sha256(text){
+  if(window.crypto && crypto.subtle && crypto.subtle.digest){
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  return weakHash(text);
+}
+
+/* ======================= DB HELPERS ======================= */
+const STORE_PREFIX = "salesApp_v1_";
+const AUTH_KEY = STORE_PREFIX + "auth";
+const SALES_PREFIX = STORE_PREFIX + "sales_";
+
+function lsGet(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(e){ return fallback; }
+}
+function lsSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; }
+}
+
+function branchStoreAvailable(){
+  return typeof localStorage !== "undefined" && db===null;
+}
+
+async function getAuthDoc(id){
+  if(db===null && branchStoreAvailable()){
+    const map = lsGet(AUTH_KEY, {});
+    return map[id] || null;
+  }
+  try{
+    const snap = await db.doc("auth/"+id).get();
+    return (snap && snap.exists) ? snap.data() : null;
+  }catch(e){ return null; }
+}
+async function setAuthDoc(id, data){
+  if(db===null && branchStoreAvailable()){
+    const map = lsGet(AUTH_KEY, {});
+    map[id] = data;
+    return lsSet(AUTH_KEY, map) || null;
+  }
+  return await db.doc("auth/"+id).set(data);
+}
+async function getAllAuthDocs(){
+  if(db===null && branchStoreAvailable()){
+    return lsGet(AUTH_KEY, {});
+  }
+  try{
+    const res = await db.collection("auth").get();
+    const map = {};
+    (res.docs||[]).forEach(d=>{ map[d.id] = d.data(); });
+    return map;
+  }catch(e){ return {}; }
+}
+
+/* ======================= SALES DB HELPERS ======================= */
+async function getSalesDoc(branch, monthKey){
+  const id = branch+"_"+monthKey;
+  if(db===null && branchStoreAvailable()){
+    return lsGet(SALES_PREFIX+id, {branch, month:monthKey, entries:{}, cellNotes:{}, dayNotes:{}, attachments:{}});
+  }
+  try{
+    const snap = await db.doc("sales/"+id).get();
+    if(snap && snap.exists) return snap.data();
+  }catch(e){}
+  return {branch, month:monthKey, entries:{}, cellNotes:{}, dayNotes:{}, attachments:{}};
+}
+async function saveSalesDoc(branch, monthKey, data){
+  const id = branch+"_"+monthKey;
+  if(db===null && branchStoreAvailable()){
+    if(!lsSet(SALES_PREFIX+id, data)) throw new Error("مساحة التخزين المحلية ممتلئة");
+    return true;
+  }
+  return await db.doc("sales/"+id).set(data);
+}
+async function getAllSalesForMonth(monthKey){
+  if(db===null && branchStoreAvailable()){
+    const out = [];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith(SALES_PREFIX) && k.endsWith("_"+monthKey)){
+          const val = lsGet(k, null);
+          if(val) out.push(val);
+        }
+      }
+    }catch(e){}
+    return out;
+  }
+  try{
+    const res = await db.collection("sales").where("month","==",monthKey).get();
+    return (res && res.docs) ? res.docs.map(d=>d.data()) : [];
+  }catch(e){ return []; }
+}
+function normalizeSalesDoc(doc, branch, monthKey){
+  if(!doc) doc = {};
+  doc.branch = branch; doc.month = monthKey;
+  if(!doc.entries) doc.entries = {};
+  if(!doc.cellNotes) doc.cellNotes = {};
+  if(!doc.dayNotes) doc.dayNotes = {};
+  if(!doc.attachments) doc.attachments = {};
+  return doc;
+}
+
+/* ======================= APP INIT ======================= */
+async function migrateLocalToDb(){
+  if(db===null || !branchStoreAvailable()) return;
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith(SALES_PREFIX)){
+        const val = lsGet(k, null);
+        if(!val) continue;
+        const id = k.slice(SALES_PREFIX.length);
+        const snap = await db.doc("sales/"+id).get();
+        if(!(snap && snap.exists)) await db.doc("sales/"+id).set(val);
+      }
+    }
+    const authMap = lsGet(AUTH_KEY, {});
+    for(const id in authMap){
+      const snap = await db.doc("auth/"+id).get();
+      if(!(snap && snap.exists)) await db.doc("auth/"+id).set(authMap[id]);
+    }
+  }catch(e){}
+}
+
+async function init(){
+  try{ db = await claude.use("db"); }catch(e){ db = null; }
+  if(!db && typeof firebase!=="undefined" && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey!=="PASTE_HERE"){
+    try{
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+      const stRef = firebase.storage();
+      assetsApi = {
+        upload: async (blob, opts)=>{
+          const name = "attachments/" + Date.now() + "_" + Math.random().toString(36).slice(2);
+          const ref = stRef.ref(name);
+          await ref.put(blob, {contentType: (opts && opts.type) || blob.type || "image/jpeg"});
+          const url = await ref.getDownloadURL();
+          return {id: name, url};
+        }
+      };
+    }catch(e){ db = null; assetsApi = null; }
+  }
+  if(db) migrateLocalToDb();
+  try{ if(!assetsApi) assetsApi = await claude.use("assets"); }catch(e){ assetsApi = null; }
+  try{ downloadsApi = await claude.use("downloads"); }catch(e){ downloadsApi = null; }
+  renderLogin();
+}
+window.addEventListener("load", init);
+
+/* ======================= LOGIN ======================= */
+function renderLogin(mode){
+  mode = mode || "branch";
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="login-shell">
+      <div class="login-wrap">
+        <div style="text-align:center;margin-bottom:18px;">
+          <div class="login-logo">📊</div>
+          <h2 style="margin-bottom:2px;">متابعة مبيعات الفروع</h2>
+          <p class="muted" style="margin:0;">${monthLabel(CUR_YEAR, CUR_MONTH)}</p>
+        </div>
+        <div class="card">
+          <div class="tabbar">
+            <button id="tabBranch" class="${mode==='branch'?'active':''}">دخول فرع</button>
+            <button id="tabFinance" class="${mode==='finance'?'active':''}">الإدارة المالية</button>
+            <button id="tabAdmin" class="${mode==='admin'?'active':''}">الدعم الفني</button>
+          </div>
+          <div id="loginBody"></div>
+        </div>
+        <p class="hint" style="text-align:center;">
+          ${db ? '' : '⚠️ وضع الحفظ المحلي: البيانات تُحفظ على هذا الجهاز فقط (لا يوجد اتصال بقاعدة بيانات مشتركة).'}
+        </p>
+      </div>
+    </div>
+  `;
+  document.getElementById("tabBranch").onclick = ()=>renderLogin("branch");
+  document.getElementById("tabFinance").onclick = ()=>renderLogin("finance");
+  document.getElementById("tabAdmin").onclick = ()=>renderLogin("admin");
+  if(mode==="branch") renderBranchLoginBody();
+  else if(mode==="finance") renderSingleLoginBody(FINANCE_USER, "الإدارة المالية", ()=>{ currentUser={type:"finance"}; renderFinanceDashboard(); });
+  else renderSingleLoginBody(ADMIN_USER, "الدعم الفني", ()=>{ currentUser={type:"admin"}; renderAdminDashboard(); });
+}
+
+function renderBranchLoginBody(){
+  const body = document.getElementById("loginBody");
+  body.innerHTML = `
+    <div class="row" style="margin-bottom:12px;">
+      <select id="branchSelect" class="select-branch" style="width:100%;">
+        <option value="">اختر كود الفرع…</option>
+        ${BRANCHES.map(b=>`<option value="${b}">${b}</option>`).join("")}
+      </select>
+    </div>
+    <div id="branchAuthArea" class="muted" style="font-size:13px;">اختر الفرع أولاً</div>
+  `;
+  document.getElementById("branchSelect").onchange = onBranchPicked;
+}
+
+async function onBranchPicked(e){
+  const code = e.target.value;
+  const area = document.getElementById("branchAuthArea");
+  if(!code){ area.innerHTML = "اختر الفرع أولاً"; return; }
+  area.innerHTML = `<div class="muted">جاري التحقق…</div>`;
+  const authDoc = await getAuthDoc(code);
+  if(authDoc && authDoc.passwordHash){
+    area.innerHTML = `
+      <div class="row" style="margin-top:6px;">
+        <input type="password" id="pw" placeholder="كلمة السر" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('loginBtn').click();}">
+        <button id="loginBtn">دخول</button>
+      </div>
+      <div class="err" id="err"></div>
+      <p style="margin-top:10px;"><a href="#" id="forgotLink" style="font-size:12.5px;">نسيت كلمة السر؟</a></p>
+      <div id="forgotArea"></div>
+    `;
+    document.getElementById("loginBtn").onclick = async ()=>{
+      const errEl = document.getElementById("err");
+      try{
+        const pw = document.getElementById("pw").value;
+        const hash = await sha256(code+":"+pw);
+        if(hash === authDoc.passwordHash){
+          currentUser = {type:"branch", code};
+          renderBranchDashboard();
+        }else{
+          errEl.textContent = "كلمة السر غير صحيحة";
+        }
+      }catch(ex){
+        errEl.textContent = "حصل خطأ: " + (ex && ex.message ? ex.message : "غير معروف");
+      }
+    };
+    document.getElementById("forgotLink").onclick = (ev)=>{
+      ev.preventDefault();
+      document.getElementById("forgotArea").innerHTML = `
+        <div class="card" style="background:var(--chip);margin-top:10px;padding:14px;">
+          <p class="muted" style="margin:0;font-size:12px;">التطبيق لا يقدر يبعت إيميل تلقائي بنفسه. كلّم فريق الدعم الفني (حساب "الدعم الفني") عشان يعمل إعادة تعيين لكلمة السر، وبعدها هتقدر تدخل من هنا وتعمل كلمة سر جديدة.</p>
+        </div>
+      `;
+    };
+  } else {
+    area.innerHTML = `
+      <p class="muted" style="font-size:13px;">لا يوجد حساب لهذا الفرع بعد — أنشئ كلمة سر خاصة به الآن.</p>
+      <div class="row" style="margin-top:6px;">
+        <input type="password" id="pw1" placeholder="كلمة سر جديدة" style="flex:1;">
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <input type="password" id="pw2" placeholder="تأكيد كلمة السر" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('createBtn').click();}">
+        <button id="createBtn">إنشاء الحساب</button>
+      </div>
+      <div class="err" id="err"></div>
+    `;
+    document.getElementById("createBtn").onclick = async ()=>{
+      const errEl = document.getElementById("err");
+      try{
+        const p1 = document.getElementById("pw1").value;
+        const p2 = document.getElementById("pw2").value;
+        if(p1.length<4){ errEl.textContent="كلمة السر يجب أن تكون 4 أحرف على الأقل"; return; }
+        if(p1!==p2){ errEl.textContent="كلمتا السر غير متطابقتين"; return; }
+        const hash = await sha256(code+":"+p1);
+        await setAuthDoc(code, {passwordHash:hash, createdAt:Date.now()});
+        currentUser = {type:"branch", code};
+        renderBranchDashboard();
+      }catch(ex){
+        errEl.textContent = "تعذر إنشاء الحساب: " + (ex && ex.message ? ex.message : "غير معروف");
+      }
+    };
+  }
+}
+
+function renderSingleLoginBody(userId, label, onSuccess){
+  const body = document.getElementById("loginBody");
+  body.innerHTML = `<div id="singleAuthArea" class="muted">جاري التحقق…</div>`;
+  (async ()=>{
+    const area = document.getElementById("singleAuthArea");
+    const authDoc = await getAuthDoc(userId);
+    if(authDoc && authDoc.passwordHash){
+      area.innerHTML = `
+        <div class="row">
+          <input type="password" id="spw" placeholder="كلمة سر ${esc(label)}" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('sloginBtn').click();}">
+          <button id="sloginBtn">دخول</button>
+        </div>
+        <div class="err" id="serr"></div>
+      `;
+      document.getElementById("sloginBtn").onclick = async ()=>{
+        const errEl = document.getElementById("serr");
+        try{
+          const pw = document.getElementById("spw").value;
+          const hash = await sha256(userId+":"+pw);
+          if(hash===authDoc.passwordHash){ onSuccess(); }
+          else{ errEl.textContent = "كلمة السر غير صحيحة"; }
+        }catch(ex){
+          errEl.textContent = "حصل خطأ: " + (ex && ex.message ? ex.message : "غير معروف");
+        }
+      };
+    }else{
+      area.innerHTML = `
+        <p class="muted" style="font-size:13px;">أول مرة؟ أنشئ كلمة سر حساب ${esc(label)}.</p>
+        <div class="row"><input type="password" id="spw1" placeholder="كلمة سر جديدة" style="flex:1;"></div>
+        <div class="row" style="margin-top:6px;"><input type="password" id="spw2" placeholder="تأكيد كلمة السر" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('screateBtn').click();}"><button id="screateBtn">إنشاء</button></div>
+        <div class="err" id="serr"></div>
+      `;
+      document.getElementById("screateBtn").onclick = async ()=>{
+        const errEl = document.getElementById("serr");
+        try{
+          const p1 = document.getElementById("spw1").value;
+          const p2 = document.getElementById("spw2").value;
+          if(p1.length<4){ errEl.textContent="كلمة السر يجب أن تكون 4 أحرف على الأقل"; return; }
+          if(p1!==p2){ errEl.textContent="كلمتا السر غير متطابقتين"; return; }
+          const hash = await sha256(userId+":"+p1);
+          await setAuthDoc(userId, {passwordHash:hash, createdAt:Date.now()});
+          onSuccess();
+        }catch(ex){
+          errEl.textContent = "تعذر إنشاء الحساب: " + (ex && ex.message ? ex.message : "غير معروف");
+        }
+      };
+    }
+  })();
+}
+async function logout(){ await flushSave(); currentUser=null; renderLogin(); }
+
+/* ======================= SHELL / SIDEBAR ======================= */
+function renderShell(navItems, activeId, whoLabel, bodyHtml){
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brandline"><span class="logoicon">F</span> Financial</div>
+        ${navItems.map(n=>`<button class="navlink ${n.id===activeId?'active':''}" onclick="${n.action}"><span class="ic">${n.icon}</span> ${n.label}</button>`).join("")}
+        <div class="sidefoot">
+          <div class="whoami"><b>${esc(whoLabel)}</b>${monthLabel(CUR_YEAR,CUR_MONTH)}</div>
+          <button class="navlink" onclick="logout()"><span class="ic">↩</span> تسجيل الخروج</button>
+        </div>
+      </aside>
+      <main class="main"><div class="main-inner" id="mainInner">${bodyHtml}</div></main>
+    </div>
+  `;
+}
+
+/* ======================= BRANCH DASHBOARD ======================= */
+let branchSalesDoc = null;
+let saveTimer = null;
+let viewYear = CUR_YEAR, viewMonth = CUR_MONTH;
+
+function monthNavBar(y, m, onPrev, onNext){
+  const canNext = !isCurrentMonth(y,m);
+  return `
+    <div class="month-nav">
+      <button onclick="${onPrev}">‹</button>
+      <span class="label">${monthLabel(y,m)}</span>
+      <button ${canNext?'':'disabled'} onclick="${onNext}">›</button>
+    </div>
+  `;
+}
+
+async function renderBranchDashboard(){
+  renderShell(
+    [{id:"grid", icon:"▦", label:"جدول المبيعات", action:"renderBranchDashboard()"}],
+    "grid", "فرع "+currentUser.code,
+    `<div class="loading-msg">جاري تحميل بيانات الفرع…</div>`
+  );
+  const mKey = monthKeyOf(viewYear, viewMonth);
+  branchSalesDoc = normalizeSalesDoc(await getSalesDoc(currentUser.code, mKey), currentUser.code, mKey);
+
+  const inner = document.getElementById("mainInner");
+  inner.innerHTML = `
+    <div class="topbar">
+      <div>
+        <h2>جدول المبيعات اليومي</h2>
+        <p class="muted" style="margin:2px 0 0;">فرع ${esc(currentUser.code)}</p>
+      </div>
+      <div class="spacer"></div>
+      ${monthNavBar(viewYear, viewMonth, "goBranchMonth(-1)", "goBranchMonth(1)")}
+    </div>
+    <div class="card">
+      <p class="hint">اضغط على أي خانة واكتب المبلغ. دبل-كليك على الخانة لإضافة ملاحظة عليها. 📎 لإرفاق ملف لليوم. 📝 لكتابة ملاحظة عامة لليوم (زي أرقام الفواتير). تقدر ترجع لأي شهر سابق من فوق وتراجعه أو تعدّله.</p>
+      <div class="grid-wrap"><div id="gridHost"></div></div>
+    </div>
+    <div id="modalHost"></div>
+  `;
+  renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+}
+
+async function goBranchMonth(delta){
+  const [y,m] = shiftMonth(viewYear, viewMonth, delta);
+  if(!isPastOrCurrent(y,m)) return;
+  await flushSave();
+  viewYear = y; viewMonth = m;
+  renderBranchDashboard();
+}
+
+function buildDayHeaders(salesDoc, editable, year, month, financeSel){
+  const daysCount = daysInMonthOf(year, month);
+  let html = `<th class="method-head">طريقة الدفع</th>`;
+  for(let d=1; d<=daysCount; d++){
+    const key = dayKey(d);
+    const wd = WEEKDAYS_AR[new Date(year, month-1, d).getDay()];
+    const isToday = isCurrentMonth(year,month) && d===TODAY_DAY;
+    const isSel = financeSel && d===financeRefDay;
+    const attCount = (salesDoc.attachments[key]||[]).length;
+    const hasDayNote = !!(salesDoc.dayNotes && salesDoc.dayNotes[key]);
+    html += `<th class="day-head ${isToday?'today':''} ${isSel?'sel':''}">
+      <div class="day-head-inner">
+        <span class="day-num">${d}</span>
+        <span class="day-name">${wd}</span>
+        <div class="head-actions">
+          <button class="icon-btn ${attCount?'has':''}" onclick="openAttachModal('${key}', ${editable})" title="مرفقات">📎${attCount?`<span class="icon-count">${attCount}</span>`:''}</button>
+          <button class="icon-btn ${hasDayNote?'has':''}" onclick="openDayNoteModal('${key}', ${editable})" title="ملاحظة اليوم">📝${hasDayNote?'<span class="icon-count">!</span>':''}</button>
+        </div>
+      </div>
+    </th>`;
+  }
+  return html;
+}
+
+function renderGrid(host, salesDoc, editable, year, month){
+  const daysCount = daysInMonthOf(year, month);
+  const financeSel = !editable && currentUser && currentUser.type==="finance" && year===financeYear && month===financeMonth;
+  let rows = "";
+  PAYMENT_METHODS.forEach(method=>{
+    let cells = `<td class="method-cell">${esc(method)}</td>`;
+    for(let d=1; d<=daysCount; d++){
+      const key = dayKey(d);
+      const val = (salesDoc.entries[key] && salesDoc.entries[key][method]!==undefined) ? salesDoc.entries[key][method] : "";
+      const noteKey = key+"_"+method;
+      const hasNote = !!(salesDoc.cellNotes && salesDoc.cellNotes[noteKey]);
+      const isToday = isCurrentMonth(year,month) && d===TODAY_DAY;
+      const isSel = financeSel && d===financeRefDay;
+      if(editable){
+        cells += `<td class="day-cell ${isToday?'today':''}" data-day="${key}" data-method="${esc(method)}">
+          ${hasNote?'<span class="note-dot" title="يوجد ملاحظة"></span>':''}
+          <input type="number" inputmode="decimal" value="${val}" data-day="${key}" data-method="${esc(method)}"
+            onchange="onCellChange(this)" ondblclick="openCellNoteModal('${key}','${escJs(method)}', true)"
+            onkeydown="onGridKeyNav(event,this)" onwheel="this.blur();return false;">
+        </td>`;
+      }else{
+        cells += `<td class="day-cell ${isToday?'today':''} ${isSel?'sel':''}" style="cursor:${hasNote?'pointer':'default'};" ${hasNote?`onclick="openCellNoteModal('${key}','${escJs(method)}', false)"`:''}><span class="num-view">${val!==""?fmtNum(val):"—"}</span>${hasNote?'<span class="note-dot"></span>':''}</td>`;
+      }
+    }
+    rows += `<tr>${cells}</tr>`;
+  });
+  let netCells = `<td class="method-cell">إجمالي المبيعات (Net)</td>`;
+  for(let d=1; d<=daysCount; d++){
+    const key = dayKey(d);
+    const dayEntries = salesDoc.entries[key] || {};
+    const sum = Object.values(dayEntries).reduce((a,b)=>a+(Number(b)||0),0);
+    netCells += `<td class="${(financeSel && d===financeRefDay)?'sel':''}">${sum ? fmtNum(sum) : "0"}</td>`;
+  }
+  host.innerHTML = `
+    <table>
+      <thead><tr>${buildDayHeaders(salesDoc, editable, year, month, financeSel)}</tr></thead>
+      <tbody>${rows}<tr class="net-row" id="netRow">${netCells}</tr></tbody>
+    </table>
+  `;
+}
+
+async function onCellChange(inputEl){
+  const day = inputEl.dataset.day;
+  const method = inputEl.dataset.method;
+  const val = inputEl.value;
+  if(!branchSalesDoc.entries[day]) branchSalesDoc.entries[day] = {};
+  if(val===""){ delete branchSalesDoc.entries[day][method]; }
+  else { branchSalesDoc.entries[day][method] = Number(val); }
+  refreshNetRow();
+  scheduleSave();
+}
+
+/* ---- Keyboard navigation between grid cells: Enter=down, arrows move in their direction ---- */
+function onGridKeyNav(e, el){
+  const keys = ["Enter","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"];
+  if(keys.indexOf(e.key)===-1) return;
+  e.preventDefault();
+  let day = Number(el.dataset.day);
+  let mIdx = PAYMENT_METHODS.indexOf(el.dataset.method);
+  const dCount = daysInMonthOf(viewYear, viewMonth);
+  const totalM = PAYMENT_METHODS.length;
+  if(e.key==="Enter" || e.key==="ArrowDown") mIdx++;
+  else if(e.key==="ArrowUp") mIdx--;
+  else if(e.key==="ArrowLeft") day++;
+  else if(e.key==="ArrowRight") day--;
+  if(mIdx<0) mIdx = totalM-1; else if(mIdx>=totalM) mIdx = 0;
+  if(day<1) day = dCount; else if(day>dCount) day = 1;
+  const method = PAYMENT_METHODS[mIdx];
+  const targetDay = dayKey(day);
+  const inputs = document.querySelectorAll("#gridHost input[data-day][data-method]");
+  let next = null;
+  for(let i=0;i<inputs.length;i++){
+    if(inputs[i].dataset.day===targetDay && inputs[i].dataset.method===method){ next = inputs[i]; break; }
+  }
+  if(next) next.focus();
+}
+function refreshNetRow(){
+  const netRow = document.getElementById("netRow");
+  if(!netRow) return;
+  const daysCount = daysInMonthOf(viewYear, viewMonth);
+  const cells = netRow.querySelectorAll("td");
+  for(let d=1; d<=daysCount; d++){
+    const key = dayKey(d);
+    const dayEntries = branchSalesDoc.entries[key] || {};
+    const sum = Object.values(dayEntries).reduce((a,b)=>a+(Number(b)||0),0);
+    if(cells[d]) cells[d].textContent = sum ? fmtNum(sum) : "0";
+  }
+}
+let saveStatusEl = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  const code = currentUser.code, y = viewYear, m = viewMonth, doc = branchSalesDoc;
+  saveTimer = setTimeout(async ()=>{
+    saveTimer = null;
+    try{
+      await saveSalesDoc(code, monthKeyOf(y, m), doc);
+    }catch(e){
+      alert("تعذر حفظ البيانات: " + (e && e.message ? e.message : "خطأ غير معروف") + "\nجرّب تاني.");
+    }
+  }, 700);
+}
+async function flushSave(){
+  if(saveTimer){
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try{
+      await saveSalesDoc(currentUser.code, monthKeyOf(viewYear, viewMonth), branchSalesDoc);
+    }catch(e){
+      alert("تعذر حفظ البيانات: " + (e && e.message ? e.message : "خطأ غير معروف") + "\nجرّب تاني.");
+    }
+  }
+  return true;
+}
+
+/* ---- Cell note modal (editable or read-only) ---- */
+function openCellNoteModal(day, method, editable){
+  const noteKey = day+"_"+method;
+  const existing = (branchOrViewDoc().cellNotes||{})[noteKey] || "";
+  const host = document.getElementById("modalHost") || ensureModalHost();
+  host.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>ملاحظة — يوم ${Number(day)} / ${esc(method)}</h3>
+        ${editable ? `
+          <textarea id="noteText" rows="4" style="width:100%;margin-top:10px;">${esc(existing)}</textarea>
+          <div class="row" style="margin-top:14px;">
+            ${existing ? '<button class="danger" onclick="deleteCellNote(\''+day+'\',\''+escJs(method)+'\')">حذف</button>':''}
+            <div class="spacer"></div>
+            <button class="secondary" onclick="closeModal()">إلغاء</button>
+            <button onclick="saveCellNote('${day}','${escJs(method)}')">حفظ</button>
+          </div>
+        ` : `
+          <p style="white-space:pre-wrap;margin-top:10px;">${esc(existing)}</p>
+          <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="secondary" onclick="closeModal()">إغلاق</button></div>
+        `}
+      </div>
+    </div>
+  `;
+}
+function branchOrViewDoc(){
+  return currentUser.type==="branch" ? branchSalesDoc : currentFinanceViewDoc;
+}
+function ensureModalHost(){
+  let h = document.getElementById("modalHost");
+  if(!h){ h = document.createElement("div"); h.id="modalHost"; document.getElementById("mainInner").appendChild(h); }
+  return h;
+}
+async function saveCellNote(day, method){
+  const text = document.getElementById("noteText").value.trim();
+  const noteKey = day+"_"+method;
+  if(!branchSalesDoc.cellNotes) branchSalesDoc.cellNotes = {};
+  if(text) branchSalesDoc.cellNotes[noteKey] = text;
+  else delete branchSalesDoc.cellNotes[noteKey];
+  await saveSalesDoc(currentUser.code, monthKeyOf(viewYear,viewMonth), branchSalesDoc);
+  closeModal();
+  renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+}
+async function deleteCellNote(day, method){
+  delete branchSalesDoc.cellNotes[day+"_"+method];
+  await saveSalesDoc(currentUser.code, monthKeyOf(viewYear,viewMonth), branchSalesDoc);
+  closeModal();
+  renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+}
+
+/* ---- Day-level note modal: rows of (invoice number + comment), Enter adds a new row ---- */
+function normalizeDayNote(raw){
+  if(!raw) return [];
+  if(typeof raw === "string") return [{inv:"", note:raw}];
+  if(Array.isArray(raw)) return raw.map(r=>Object.assign({}, r));
+  return [{inv:typeof raw.inv==="string"?raw.inv:"", note:typeof raw.note==="string"?raw.note:""}];
+}
+function readDayNoteRows(){
+  const list = [];
+  document.querySelectorAll("#dayNoteRows .dn-row").forEach((el,i)=>{
+    const invEl = document.getElementById("dni_"+i);
+    const noteEl = document.getElementById("dnn_"+i);
+    list.push({inv: invEl ? invEl.value.trim() : "", note: noteEl ? noteEl.value.trim() : ""});
+  });
+  return list;
+}
+function renderDayNoteRows(list){
+  const host = document.getElementById("dayNoteRows");
+  if(!host) return;
+  if(!list.length){
+    host.innerHTML = '<p class="muted" style="font-size:13px;">لا يوجد سطور بعد — اضغط "إضافة سطر" أو اكتب واضغط إنتر.</p>';
+    return;
+  }
+  host.innerHTML = list.map((r,i)=>`
+    <div class="dn-row row" style="margin-top:6px;">
+      <input type="text" id="dni_${i}" value="${esc(r.inv)}" placeholder="رقم الفاتورة" style="flex:0 0 130px;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addDayNoteRow(${i+1});}">
+      <input type="text" id="dnn_${i}" value="${esc(r.note)}" placeholder="الكومنت / الملاحظة" style="flex:1;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addDayNoteRow(${i+1});}">
+      <button class="ghost" onclick="removeDayNoteRow(${i})" title="حذف هذا السطر" style="padding:6px 10px;">✕</button>
+    </div>`).join("");
+}
+function addDayNoteRow(afterIdx){
+  const list = readDayNoteRows();
+  if(afterIdx===undefined) list.push({inv:"", note:""});
+  else list.splice(afterIdx, 0, {inv:"", note:""});
+  renderDayNoteRows(list);
+  const focusIdx = afterIdx===undefined ? list.length-1 : afterIdx;
+  const noteEl = document.getElementById("dnn_"+focusIdx);
+  if(noteEl) noteEl.focus();
+}
+function removeDayNoteRow(i){
+  const list = readDayNoteRows();
+  list.splice(i,1);
+  renderDayNoteRows(list);
+}
+function openDayNoteModal(day, editable){
+  const doc = branchOrViewDoc();
+  const rows = normalizeDayNote((doc.dayNotes||{})[day]);
+  const host = ensureModalHost();
+  host.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>ملاحظة يوم ${Number(day)}</h3>
+        <p class="hint" style="margin-top:2px;">اكتب رقم الفاتورة والكومنت جنب بعض. دوّس إنتر في أي خانة عشان يضيف سطر جديد. مثال: أرقام الفواتير، تنبيهات للإدارة المالية…</p>
+        ${editable ? `
+          <div id="dayNoteRows"></div>
+          <div class="row" style="margin-top:8px;">
+            <button class="ghost" onclick="addDayNoteRow()">+ إضافة سطر</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            ${rows.length ? '<button class="danger" onclick="deleteDayNote(\''+day+'\')">حذف الكل</button>':''}
+            <div class="spacer"></div>
+            <button class="secondary" onclick="closeModal()">إلغاء</button>
+            <button onclick="saveDayNote('${day}')">حفظ</button>
+          </div>
+        ` : `
+          <div>
+            ${rows.length ? rows.map(r=>`
+              <div class="row" style="margin-top:6px;">
+                <span class="dn-inv-box">فاتورة ${r.inv ? esc(r.inv) : '—'}</span>
+                <span class="dn-note-box">${r.note ? esc(r.note) : '<span class="muted">—</span>'}</span>
+              </div>`).join("") : '<span class="muted" style="font-size:13px;">لا توجد ملاحظة لهذا اليوم</span>'}
+          </div>
+          <div class="row" style="margin-top:14px;"><div class="spacer"></div><button class="secondary" onclick="closeModal()">إغلاق</button></div>
+        `}
+      </div>
+    </div>
+  `;
+  if(editable) renderDayNoteRows(rows);
+}
+async function saveDayNote(day){
+  const list = readDayNoteRows().filter(r=>r.inv!=="" || r.note!=="");
+  if(!branchSalesDoc.dayNotes) branchSalesDoc.dayNotes = {};
+  if(list.length) branchSalesDoc.dayNotes[day] = list;
+  else delete branchSalesDoc.dayNotes[day];
+  await saveSalesDoc(currentUser.code, monthKeyOf(viewYear,viewMonth), branchSalesDoc);
+  closeModal();
+  renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+}
+async function deleteDayNote(day){
+  delete branchSalesDoc.dayNotes[day];
+  await saveSalesDoc(currentUser.code, monthKeyOf(viewYear,viewMonth), branchSalesDoc);
+  closeModal();
+  renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+}
+
+/* ---- Attachments (with compression + db fallback so it works even without the assets capability) ---- */
+function compressImage(file, maxDim, quality){
+  return new Promise((resolve,reject)=>{
+    if(!file.type || !file.type.startsWith("image/")){ resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      let w = img.width, h = img.height;
+      if(w>maxDim || h>maxDim){
+        if(w>h){ h = Math.round(h*maxDim/w); w = maxDim; } else { w = Math.round(w*maxDim/h); h = maxDim; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width=w; canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      canvas.toBlob(blob=>{
+        URL.revokeObjectURL(url);
+        resolve(blob || file);
+      }, "image/jpeg", quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+function blobToDataURL(blob){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+function openAttachModal(day, editable){
+  const doc = branchOrViewDoc();
+  const files = (doc.attachments && doc.attachments[day]) || [];
+  const host = ensureModalHost();
+  host.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>مرفقات يوم ${Number(day)}</h3>
+        <div id="fileList">
+          ${files.length ? files.map((f,i)=>`
+            <div class="file-row">
+              <a href="${f.url || f.dataUrl}" target="_blank" download="${esc(f.name||'file')}">${esc(f.name||'ملف')}</a>
+              ${editable ? `<button class="ghost" onclick="removeAttachment('${day}',${i})">حذف</button>` : ''}
+            </div>`).join("") : '<p class="muted" style="font-size:13px;">لا يوجد مرفقات بعد</p>'}
+        </div>
+        ${editable ? `
+          <input type="file" id="fileInput" style="margin-top:10px;" accept="image/*,.pdf">
+          <div id="uploadStatus" class="hint" style="margin:8px 0 0;"></div>
+          <div class="row" style="margin-top:6px;">
+            <div class="spacer"></div>
+            <button class="secondary" onclick="closeModal()">إغلاق</button>
+            <button id="uploadBtn" onclick="uploadAttachment('${day}')">رفع الملف</button>
+          </div>
+        ` : `<div class="row" style="margin-top:10px;"><div class="spacer"></div><button class="secondary" onclick="closeModal()">إغلاق</button></div>`}
+      </div>
+    </div>
+  `;
+}
+async function uploadAttachment(day){
+  const inp = document.getElementById("fileInput");
+  const statusEl = document.getElementById("uploadStatus");
+  const btn = document.getElementById("uploadBtn");
+  if(!inp.files || !inp.files[0]){ statusEl.textContent = "اختر ملف أولاً"; return; }
+  const file = inp.files[0];
+  btn.disabled = true;
+  statusEl.textContent = "جاري الرفع…";
+  try{
+    let blob = file;
+    if(file.type && file.type.startsWith("image/")){
+      blob = await compressImage(file, 1500, 0.72);
+    }
+    let record = null;
+    if(assetsApi){
+      try{
+        const res = await assetsApi.upload(blob, {type: blob.type || file.type || "image/jpeg"});
+        record = {id:res.id, url:res.url, name:file.name};
+      }catch(assetErr){
+        record = null; // fall through to db fallback
+      }
+    }
+    if(!record){
+      // fallback: store a compressed copy directly inside the document (works without the assets capability)
+      const dataUrl = await blobToDataURL(blob);
+      if(dataUrl.length > 250000){
+        statusEl.textContent = "الملف كبير جداً على وضع الحفظ الاحتياطي — جرّب صورة أصغر أو فعّل صلاحية الرفع.";
+        btn.disabled = false;
+        return;
+      }
+      record = {dataUrl, name:file.name};
+    }
+    if(!branchSalesDoc.attachments[day]) branchSalesDoc.attachments[day] = [];
+    branchSalesDoc.attachments[day].push(record);
+    await saveSalesDoc(currentUser.code, monthKeyOf(viewYear, viewMonth), branchSalesDoc);
+    closeModal();
+    renderGrid(document.getElementById("gridHost"), branchSalesDoc, true, viewYear, viewMonth);
+  }catch(e){
+    statusEl.textContent = "تعذر رفع الملف: " + (e && (e.message||e.code) ? (e.message||e.code) : "خطأ غير معروف");
+    btn.disabled = false;
+  }
+}
+async function removeAttachment(day, idx){
+  const f = (branchSalesDoc.attachments[day]||[])[idx];
+  branchSalesDoc.attachments[day].splice(idx,1);
+  await saveSalesDoc(currentUser.code, monthKeyOf(viewYear, viewMonth), branchSalesDoc);
+  if(f && f.id && assetsApi){ try{ await assetsApi.delete(f.id); }catch(e){} }
+  openAttachModal(day, true);
+}
+function closeModal(){ const h=document.getElementById("modalHost"); if(h) h.innerHTML=""; }
+
+/* ======================= FINANCE DASHBOARD ======================= */
+let allBranchDocs = [];
+let financeYear = CUR_YEAR, financeMonth = CUR_MONTH;
+let financeTab = "overview";
+let currentFinanceViewDoc = null;
+let chartRefs = [];
+function defaultRefDay(){
+  const daysCount = daysInMonthOf(financeYear, financeMonth);
+  if(isCurrentMonth(financeYear, financeMonth)) return TODAY_DAY>1 ? TODAY_DAY-1 : 1;
+  return daysCount;
+}
+let financeRefDay = defaultRefDay();
+let financePickedBranch = "";
+let financeReconcile = null;
+let financeRangeStart = 1, financeRangeEnd = defaultRefDay();
+function rangeDateValue(which){ return financeYear + "-" + dayKey(financeMonth) + "-" + dayKey(which==="start" ? financeRangeStart : financeRangeEnd); }
+function rangeLabel(){
+  if(financeRangeStart===financeRangeEnd && !isNaN(financeRangeStart)) return "يوم " + financeRangeStart + " " + MONTHS_AR[financeMonth-1];
+  return "من " + financeRangeStart + " ل " + financeRangeEnd + " " + MONTHS_AR[financeMonth-1];
+}
+function refDayLabel(){ return financeRefDay + " " + MONTHS_AR[financeMonth-1]; }
+function financeDateValue(){ return financeYear + "-" + dayKey(financeMonth) + "-" + dayKey(financeRefDay); }
+function destroyCharts(){ chartRefs.forEach(c=>c.destroy()); chartRefs=[]; }
+
+function dayTotal(doc, day){
+  const e = (doc.entries||{})[dayKey(day)] || {};
+  return Object.values(e).reduce((a,b)=>a+(Number(b)||0),0);
+}
+function branchMonthTotal(doc, daysCount){
+  let t = 0;
+  for(let d=1; d<=daysCount; d++) t += dayTotal(doc, d);
+  return t;
+}
+function methodMonthTotal(doc, method, daysCount){
+  let t = 0;
+  for(let d=1; d<=daysCount; d++){
+    const e = (doc.entries||{})[dayKey(d)] || {};
+    t += Number(e[method]||0);
+  }
+  return t;
+}
+
+async function loadFinanceMonth(){
+  const mKey = monthKeyOf(financeYear, financeMonth);
+  const docs = await getAllSalesForMonth(mKey);
+  const byCode = {};
+  docs.forEach(d=>byCode[d.branch]=normalizeSalesDoc(d, d.branch, mKey));
+  BRANCHES.forEach(code=>{ if(!byCode[code]) byCode[code] = normalizeSalesDoc(null, code, mKey); });
+  allBranchDocs = BRANCHES.map(c=>byCode[c]);
+}
+
+async function renderFinanceDashboard(){
+  renderShell(
+    [
+      {id:"overview", icon:"◧", label:"نظرة عامة وتقارير", action:"setFinanceTab('overview')"},
+      {id:"branch", icon:"▦", label:"جدول فرع بعينه", action:"setFinanceTab('branch')"},
+      {id:"reconcile", icon:"⇄", label:"التطابق مع الشيت", action:"setFinanceTab('reconcile')"},
+    ],
+    financeTab, "الإدارة المالية",
+    `<div class="loading-msg">جاري تحميل بيانات كل الفروع…</div>`
+  );
+  await loadFinanceMonth();
+  renderFinanceBody();
+}
+function setFinanceTab(tab){ financeTab = tab; renderFinanceDashboard(); }
+async function goFinanceMonth(delta){
+  const [y,m] = shiftMonth(financeYear, financeMonth, delta);
+  if(!isPastOrCurrent(y,m)) return;
+  financeYear = y; financeMonth = m;
+  financeRefDay = defaultRefDay();
+  financeRangeStart = 1; financeRangeEnd = defaultRefDay();
+  await loadFinanceMonth();
+  renderFinanceBody();
+}
+function onFinanceRangePicked(e){
+  const parts = (e.target.value||"").split("-");
+  const y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
+  if(!y || !m || !d) return;
+  if(!isPastOrCurrent(y,m)){ alert("لا يمكن اختيار شهر مستقبلي"); e.target.value = rangeDateValue(e.target.id==="financeRangeStart"?"start":"end"); return; }
+  const changedMonth = (y!==financeYear || m!==financeMonth);
+  if(changedMonth){
+    financeYear = y; financeMonth = m;
+    financeRefDay = Math.min(d, daysInMonthOf(y,m));
+    financeRangeStart = 1; financeRangeEnd = defaultRefDay();
+    (async ()=>{ await loadFinanceMonth(); renderFinanceBody(); })();
+    return;
+  }
+  if(e.target.id==="financeRangeStart"){
+    financeRangeStart = Math.min(d, daysInMonthOf(y,m));
+  } else {
+    financeRangeEnd = Math.min(d, daysInMonthOf(y,m));
+  }
+  if(financeRangeStart > financeRangeEnd){ const t = financeRangeStart; financeRangeStart = financeRangeEnd; financeRangeEnd = t; }
+  financeRefDay = financeRangeEnd;
+  renderFinanceBody();
+}
+function onFinanceDatePicked(e){
+  const parts = (e.target.value||"").split("-");
+  const y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
+  if(!y || !m || !d) return;
+  if(!isPastOrCurrent(y,m)){ alert("لا يمكن اختيار شهر مستقبلي"); e.target.value = financeDateValue(); return; }
+  const changedMonth = (y!==financeYear || m!==financeMonth);
+  financeYear = y; financeMonth = m;
+  financeRefDay = Math.min(d, daysInMonthOf(y,m));
+  (async ()=>{
+    if(changedMonth) await loadFinanceMonth();
+    renderFinanceBody();
+  })();
+}
+
+function renderFinanceBody(){
+  const inner = document.getElementById("mainInner");
+  if(financeTab==="overview"){
+    inner.innerHTML = `
+      <div class="topbar">
+        <div><h2>نظرة عامة وتقارير</h2><p class="muted" style="margin:2px 0 0;">كل الفروع (${BRANCHES.length})</p></div>
+        <div class="spacer"></div>
+        ${monthNavBar(financeYear, financeMonth, "goFinanceMonth(-1)", "goFinanceMonth(1)")}
+        <span class="tag" style="padding:8px 12px;">اختر اليوم من الكالندر لمراجعة يوم بعينه:</span>
+        <input type="date" id="financeDate" value="${financeDateValue()}" max="${CUR_YEAR}-${dayKey(CUR_MONTH)}-${dayKey(TODAY_DAY)}" title="اختار اليوم اللي عايز تراجع مبيعاته">
+      </div>
+      <div id="overviewHost"></div>
+    `;
+    document.getElementById("financeDate").onchange = onFinanceDatePicked;
+    renderFinanceOverview(document.getElementById("overviewHost"));
+  } else if(financeTab==="branch"){
+    inner.innerHTML = `
+      <div class="topbar">
+        <div><h2>جدول فرع بعينه</h2><p class="muted" style="margin:2px 0 0;">مراجعة كاملة تشمل الملاحظات والمرفقات</p></div>
+        <div class="spacer"></div>
+        ${monthNavBar(financeYear, financeMonth, "goFinanceMonth(-1)", "goFinanceMonth(1)")}
+        <span class="tag" style="padding:8px 12px;">اختار اليوم من الكالندر:</span>
+        <input type="date" id="financeDate" value="${financeDateValue()}" max="${CUR_YEAR}-${dayKey(CUR_MONTH)}-${dayKey(TODAY_DAY)}" title="اختار اليوم وبيتظلّل في الجدول">
+      </div>
+      <div class="card">
+        <div class="row">
+          <select id="pickBranch" class="select-branch">
+            <option value="">اختر فرع لعرض جدوله…</option>
+            ${BRANCHES.map(b=>`<option value="${b}">${b}</option>`).join("")}
+          </select>
+          <div class="spacer"></div>
+          <button id="exportBtn" class="secondary" style="display:none;">تصدير CSV</button>
+        </div>
+        <div id="branchGridArea" style="margin-top:14px;"></div>
+      </div>
+      <div id="modalHost"></div>
+    `;
+    document.getElementById("pickBranch").onchange = onFinanceBranchPicked;
+    document.getElementById("financeDate").onchange = onFinanceDatePicked;
+    const sel = document.getElementById("pickBranch");
+    if(financePickedBranch && [...sel.options].some(o=>o.value===financePickedBranch)){
+      sel.value = financePickedBranch;
+      renderFinanceBranchGrid();
+    } else {
+      financePickedBranch = "";
+      renderFinanceBranchGrid();
+    }
+  } else {
+    inner.innerHTML = `
+      <div class="topbar">
+        <div><h2>التطابق مع الشيت</h2><p class="muted" style="margin:2px 0 0;">مقارنة مبيعات الفروع المسجلة بأي نطاق أيام مع الشيت المرفوع — النتيجة ثابتة وبتتمسح بالرفع الجديد فقط</p></div>
+        <div class="spacer"></div>
+        ${monthNavBar(financeYear, financeMonth, "goFinanceMonth(-1)", "goFinanceMonth(1)")}
+        <span class="tag" style="padding:8px 12px;">من يوم:</span>
+        <input type="date" id="financeRangeStart" value="${rangeDateValue("start")}" min="${financeYear}-${dayKey(financeMonth)}-01" max="${CUR_YEAR}-${dayKey(CUR_MONTH)}-${dayKey(TODAY_DAY)}" title="بداية النطاق اللي بيتقارن بيه الشيت — لو عايز يوم واحد سيب الاتنين زي بعض">
+        <span class="tag" style="padding:8px 12px;">إلى يوم:</span>
+        <input type="date" id="financeRangeEnd" value="${rangeDateValue("end")}" min="${financeYear}-${dayKey(financeMonth)}-01" max="${CUR_YEAR}-${dayKey(CUR_MONTH)}-${dayKey(TODAY_DAY)}" title="نهاية النطاق — بيجمع صفوف الشيت اللي تاريخها جوه النطاق">
+      </div>
+      <div class="card">
+        <h3>رفع الشيت</h3>
+        <p class="hint">العمود الأول بيتتجاهل، العمود التاني فيه "طريقة الدفع - كود الفرع" (مثال: Cash Store - TNT1)، والعمود الثالث فيه المبلغ، وآخر عمود فيه <b>تاريخ الصف</b>. لما تختار من يوم ل يوم، بيجمع كل صفوف الشيت اللي تاريخها جوه النطاق ويقارنها بالمسجل في نفس الأيام. أي مبلغ عشري بيتقرّب لأقرب رقم صحيح (مثلاً 499.98 ⇒ 500).</p>
+        <div class="row">
+          <input type="file" id="reconcileFile" accept=".xlsx,.xls,.csv">
+        </div>
+        <div id="reconcileInfo" class="hint" style="margin:8px 0 0;"></div>
+        <div id="reconcileResult"></div>
+      </div>
+    `;
+    document.getElementById("financeRangeStart").onchange = onFinanceRangePicked;
+    document.getElementById("financeRangeEnd").onchange = onFinanceRangePicked;
+    document.getElementById("reconcileFile").onchange = onReconcileFile;
+    if(financeReconcile){
+      document.getElementById("reconcileInfo").innerHTML = `<span class="ok-pill">مرفوع: ${esc(financeReconcile.fileName)} — ${financeReconcile.rows.length} صف ✓ (${rangeLabel()})</span>`;
+    }
+    renderReconcileResult(document.getElementById("reconcileResult"));
+  }
+}
+
+function onFinanceBranchPicked(e){
+  financePickedBranch = e.target.value;
+  renderFinanceBranchGrid();
+}
+function renderFinanceBranchGrid(){
+  const code = financePickedBranch;
+  const area = document.getElementById("branchGridArea");
+  const exportBtn = document.getElementById("exportBtn");
+  if(!code){
+    if(area) area.innerHTML="";
+    if(exportBtn) exportBtn.style.display="none";
+    if(currentFinanceViewDoc) currentFinanceViewDoc = null;
+    return;
+  }
+  const doc = allBranchDocs.find(d=>d.branch===code);
+  currentFinanceViewDoc = doc;
+  const daysCount = daysInMonthOf(financeYear, financeMonth);
+  const total = branchMonthTotal(doc, daysCount);
+  area.innerHTML = `<h3 style="margin-bottom:10px;">${esc(code)} — إجمالي الشهر: <span class="money" style="font-size:17px;">${fmtNum(total)}</span> — يوم ${refDayLabel()} بمعروض بتظليل فاتح:</h3><div class="grid-wrap"><div id="viewGrid"></div></div>`;
+  renderGrid(document.getElementById("viewGrid"), doc, false, financeYear, financeMonth);
+  exportBtn.style.display = "inline-block";
+  exportBtn.onclick = ()=>exportBranchCSV(code, doc, daysCount);
+  scrollToSelectedDay();
+}
+function scrollToSelectedDay(){
+  const el = document.querySelector("#viewGrid th.sel, #viewGrid td.day-cell.sel");
+  if(el && typeof el.scrollIntoView==="function"){
+    el.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"});
+  }
+}
+
+/* ---- Sheet reconciliation (التطابق مع الشيت) ---- */
+function onReconcileFile(e){
+  const file = e.target.files && e.target.files[0];
+  const info = document.getElementById("reconcileInfo");
+  const res = document.getElementById("reconcileResult");
+  if(!file) return;
+  if(typeof XLSX==="undefined"){
+    info.innerHTML = '<span class="alert-pill">مكتبة قراءة الإكسيل مش محمّلة — تأكد من اتصال الإنترنت ثم أعد فتح الصفحة.</span>';
+    return;
+  }
+  info.innerHTML = '<div class="muted">جاري قراءة الشيت…</div>';
+  financeReconcile = null;
+  res.innerHTML = "";
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const wb = XLSX.read(ev.target.result, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, cellDates:true, defval:""});
+      const parsed = [];
+      let noDate = 0;
+      rows.forEach(row=>{
+        if(!row || !Array.isArray(row)) return;
+        const desc = String(row[1]==null ? "" : row[1]).trim();
+        if(!desc || desc.indexOf(" - ")===-1) return;
+        let amount = null;
+        for(let i=2;i<row.length;i++){
+          const cell = row[i];
+          if(cell==="" || cell==null) continue;
+          let v = Number(cell);
+          if(!isFinite(v) && typeof cell==="string"){
+            const pv = parseFloat(cell.replace(/[^-0-9.]/g,""));
+            if(isFinite(pv)) v = pv;
+          }
+          if(isFinite(v)){ amount = v; break; }
+        }
+        if(amount===null) return;
+        let dateCell = null;
+        for(let i=row.length-1;i>=0;i--){
+          const c = row[i];
+          if(c!=="" && c!=null && String(c).trim()!==""){ dateCell = c; break; }
+        }
+        const day = sheetCellToDay(dateCell);
+        if(!day) noDate++;
+        const parts = desc.split(" - ");
+        const branch = parts[parts.length-1].trim().toUpperCase();
+        const methodRaw = parts.slice(0,-1).join(" - ").trim();
+        const method = PAYMENT_METHODS.find(m=>m.toLowerCase()===methodRaw.toLowerCase()) || methodRaw;
+        parsed.push({branch, method, amount: Math.round(amount), day});
+      });
+      if(!parsed.length){
+          info.innerHTML = '<span class="alert-pill">مفيش صفوف مفهومة في الشيت — تأكد إن العمود التاني فيه "طريقة دفع - فرع" والمبلغ في عمود رقمي.</span>';
+          res.innerHTML = "";
+          return;
+        }
+        financeReconcile = { rows: parsed, fileName: file.name, noDate };
+        info.innerHTML = `<span class="ok-pill">مرفوع: ${esc(file.name)} — ${parsed.length} صف ✓${noDate?` (${noDate} من غير تاريخ واضح)`:"ا"} (${rangeLabel()})</span>`;
+        renderReconcileResult(res);
+    }catch(ex){
+      info.innerHTML = '<span class="alert-pill">تعذر قراءة الملف: ' + esc(ex && ex.message ? ex.message : "خطأ غير معروف") + '</span>';
+      res.innerHTML = "";
+    }
+  };
+  reader.onerror = ()=>{ info.innerHTML = '<span class="alert-pill">تعذر قراءة الملف</span>'; res.innerHTML = ""; };
+  reader.readAsArrayBuffer(file);
+}
+
+function sheetCellToDay(cell){
+  if(cell instanceof Date && !isNaN(cell.getTime())) return {y:cell.getFullYear(), m:cell.getMonth()+1, d:cell.getDate()};
+  if(typeof cell==="number" && isFinite(cell)){
+    if(typeof XLSX!=="undefined" && XLSX.SSF && XLSX.SSF.parse_date_code){
+      const dd = XLSX.SSF.parse_date_code(cell);
+      if(dd && dd.y && dd.m && dd.d) return {y:dd.y, m:dd.m, d:dd.d};
+    }
+  }
+  if(typeof cell==="string"){
+    const s = cell.trim();
+    let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m) return {y:Number(m[1]), m:Number(m[2]), d:Number(m[3])};
+    m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if(m) return {y:Number(m[3]), m:Number(m[2]), d:Number(m[1])};
+  }
+  return null;
+}
+
+function renderReconcileResult(host){
+  if(!host) return;
+  if(!financeReconcile || !financeReconcile.rows || !financeReconcile.rows.length){ host.innerHTML = ""; return; }
+  const sheetByKey = {};
+  let rowsIn = 0;
+  financeReconcile.rows.forEach(r=>{
+    const inRange = !r.day || (r.day.y===financeYear && r.day.m===financeMonth && r.day.d>=financeRangeStart && r.day.d<=financeRangeEnd);
+    if(!inRange) return;
+    rowsIn++;
+    const k = r.branch+"__"+r.method;
+    sheetByKey[k] = (sheetByKey[k]||0) + r.amount;
+  });
+  const recByKey = {};
+  for(let d=financeRangeStart; d<=financeRangeEnd; d++){
+    const dk = dayKey(d);
+    allBranchDocs.forEach(doc=>{
+      const e = (doc.entries||{})[dk] || {};
+      Object.keys(e).forEach(m=>{
+        const v = Number(e[m]);
+        if(v!==0){ const k = doc.branch+"__"+m; recByKey[k] = (recByKey[k]||0)+v; }
+      });
+    });
+  }
+  const branchesInvolved = new Set(Object.keys(sheetByKey).map(k=>k.split("__")[0]));
+  Object.keys(recByKey).forEach(k=>branchesInvolved.add(k.split("__")[0]));
+  const order = [...branchesInvolved].sort();
+  let grandSheet = 0, grandRec = 0, matchBranches = 0, mismatchBranches = 0;
+  const cards = order.map(branch=>{
+    const doc = allBranchDocs.find(d=>d.branch===branch);
+    const branchInSheet = Object.keys(sheetByKey).some(k=>k.startsWith(branch+"__"));
+    const methods = new Set();
+    Object.keys(sheetByKey).forEach(k=>{ if(k.startsWith(branch+"__")) methods.add(k.split("__")[1]); });
+    Object.keys(recByKey).forEach(k=>{ if(k.startsWith(branch+"__")) methods.add(k.split("__")[1]); });
+    let branchSheet = 0, branchRec = 0;
+    let anyData = false;
+    let allMatch = true;
+    const rowsHtml = [...methods].sort().map(m=>{
+      const s = sheetByKey[branch+"__"+m] || 0;
+      const r = recByKey[branch+"__"+m] || 0;
+      if(s || r) anyData = true;
+      const ok = s===r;
+      if(!ok) allMatch = false;
+      branchSheet += s; branchRec += r;
+      const status = ok
+        ? '<span class="ok-pill">مطابق ✓</span>'
+        : (s>r
+            ? `<span class="alert-pill">الفرع معجز ${fmtNum(s-r)}</span>`
+            : `<span class="alert-pill">الفرع زايد ${fmtNum(r-s)}</span>`);
+      return `<tr>
+        <td style="padding:8px 10px;font-weight:700;text-align:right;">${esc(m)}${s===0?' <span class="tag gray">مش في الشيت</span>':''}</td>
+        <td class="money">${r?fmtNum(r):"—"}</td>
+        <td class="money">${s?fmtNum(s):"—"}</td>
+        <td class="money">${fmtNum(s-r)}</td>
+        <td style="text-align:center;">${status}</td>
+      </tr>`;
+    }).join("");
+    const bOk = anyData && allMatch;
+    if(bOk) matchBranches++; else mismatchBranches++;
+    grandSheet += branchSheet; grandRec += branchRec;
+    return `<div class="card" style="padding:16px;margin-bottom:12px;">
+      <div class="list-item">
+        <span style="font-weight:800;font-size:15px;">${esc(branch)}${!doc ? ' <span class="tag gray">كود غير مسجل في البرنامج</span>' : (!branchInSheet ? ' <span class="tag gray">مش موجود في الشيت</span>' : "")}</span>
+        ${bOk ? '<span class="ok-pill">مطابق ✓</span>' : '<span class="alert-pill">غير مطابق ✗</span>'}
+      </div>
+      <div class="row" style="padding:6px 0;flex-wrap:wrap;">
+        <span class="tag">المسجل بالفرع: <b class="money">${fmtNum(branchRec)}</b></span>
+        <span class="tag">الشيت: <b class="money">${fmtNum(branchSheet)}</b></span>
+        <span class="tag ${bOk?'green':'gray'}">الفرق: <b class="money">${fmtNum(branchRec-branchSheet)}</b></span>
+      </div>
+      <div class="grid-wrap" style="margin-top:8px;">
+        <table style="min-width:460px;">
+          <thead><tr><th style="padding:8px;text-align:right;">طريقة الدفع</th><th style="padding:8px;">المسجل بالفرع</th><th style="padding:8px;">الشيت</th><th style="padding:8px;">الفرق (شيت − مسجل)</th><th style="padding:8px;">النتيجة</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+  host.innerHTML = `
+    <div class="kpi" style="margin-top:14px;">
+      <div class="box"><div class="num">${fmtNum(grandRec)}</div><div class="lbl">إجمالي المسجل (${rangeLabel()})</div></div>
+      <div class="box"><div class="num">${fmtNum(grandSheet)}</div><div class="lbl">إجمالي الشيت (${rowsIn} صف داخل النطاق)</div></div>
+      <div class="box"><div class="num">${matchBranches}</div><div class="lbl">فروع مطابقة</div></div>
+      <div class="box"><div class="num">${mismatchBranches}</div><div class="lbl">فروع غير مطابقة</div></div>
+    </div>
+    ${cards}
+  `;
+}
+
+function renderFinanceOverview(host){
+  destroyCharts();
+  const daysCount = daysInMonthOf(financeYear, financeMonth);
+  const grandTotal = allBranchDocs.reduce((a,d)=>a+branchMonthTotal(d,daysCount),0);
+  const refDay = financeRefDay;
+  const refTotal = allBranchDocs.reduce((a,d)=>a+dayTotal(d,refDay),0);
+  const reportedRef = allBranchDocs.filter(d=>dayTotal(d,refDay)>0).length;
+  const missingRef = allBranchDocs.filter(d=>dayTotal(d,refDay)===0);
+
+  let noteCount = 0, attachCount = 0;
+  const flagged = [];
+  allBranchDocs.forEach(d=>{
+    const dn = Object.keys(d.dayNotes||{}).length;
+    const cn = Object.keys(d.cellNotes||{}).length;
+    const at = Object.values(d.attachments||{}).reduce((a,arr)=>a+arr.length,0);
+    noteCount += dn+cn; attachCount += at;
+    if(dn||cn||at) flagged.push({code:d.branch, dn,cn,at});
+  });
+
+  const allMethodTotals = PAYMENT_METHODS.map(m=>({method:m, total:allBranchDocs.reduce((a,d)=>a+methodMonthTotal(d,m,daysCount),0)})).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+
+  const perBranchBreakdown = allBranchDocs.map(d=>{
+    const rows = PAYMENT_METHODS.map(m=>({m, t:methodMonthTotal(d,m,daysCount)})).filter(x=>x.t>0);
+    const total = branchMonthTotal(d,daysCount);
+    if(!total && !rows.length) return "";
+    return `<div class="card" style="padding:14px;">
+      <div class="list-item"><span style="font-weight:800;font-size:14px;">${esc(d.branch)}</span><span class="money">${fmtNum(total)}</span></div>
+      <div style="margin-top:6px;">
+        ${rows.map(r=>`<div class="list-item" style="padding:3px 0;"><span class="muted" style="font-size:12.5px;">${esc(r.m)}</span><span class="money" style="font-size:12.5px;">${fmtNum(r.t)}</span></div>`).join("")}
+      </div>
+    </div>`;
+  }).join("");
+
+  const grandMethodsHtml = allMethodTotals.length
+    ? `<table style="min-width:360px;">
+        <thead><tr><th style="padding:8px;text-align:right;">طريقة الدفع</th><th style="padding:8px;">الإجمالي (كل الفروع)</th></tr></thead>
+        <tbody>${allMethodTotals.map(x=>`<tr><td style="padding:8px 10px;font-weight:700;text-align:right;">${esc(x.method)}</td><td class="money">${fmtNum(x.total)}</td></tr>`).join("")}</tbody>
+      </table>`
+    : '<p class="muted">لا توجد مبيعات مسجلة هذا الشهر.</p>';
+
+  host.innerHTML = `
+    <div class="card">
+      <div class="kpi">
+        <div class="box"><div class="num">${fmtNum(grandTotal)}</div><div class="lbl">إجمالي مبيعات الشهر (كل الفروع)</div></div>
+        <div class="box"><div class="num">${fmtNum(refTotal)}</div><div class="lbl">إجمالي مبيعات يوم ${refDayLabel()}</div></div>
+        <div class="box"><div class="num">${reportedRef} / ${BRANCHES.length}</div><div class="lbl">الفروع اللي سجّلت يوم ${refDayLabel()}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>إجمالي طرق الدفع لكل الفروع هذا الشهر</h3>
+      <div class="grid-wrap">${grandMethodsHtml}</div>
+    </div>
+
+    <div class="card">
+      <h3>طرق الدفع لكل فرع لوحده</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">${perBranchBreakdown}</div>
+    </div>
+
+    <div class="card">
+      <h3>فروع لم تُسجّل مبيعات يوم ${refDayLabel()}</h3>
+      ${missingRef.length ? missingRef.map(d=>`<div class="list-item"><span>${esc(d.branch)}</span><span class="alert-pill">لم يُسجَّل</span></div>`).join("") : '<p class="ok-pill">كل الفروع سجّلت ✓</p>'}
+    </div>
+
+    <div class="card">
+      <h3>ملاحظات ومرفقات هذا الشهر <span class="badge">${noteCount} ملاحظة · ${attachCount} مرفق</span></h3>
+      <p class="hint">من "جدول فرع بعينه" تقدر تفتح جدول أي فرع وتشوف نفس الملاحظات والمرفقات اللي كتبها بالظبط.</p>
+      ${flagged.length ? flagged.map(f=>`<div class="list-item"><span>${esc(f.code)}</span><span>${f.dn+f.cn} ملاحظة · ${f.at} مرفق</span></div>`).join("") : '<p class="muted">لا يوجد ملاحظات أو مرفقات مسجلة هذا الشهر.</p>'}
+    </div>
+  `;
+}
+
+async function exportBranchCSV(code, doc, daysCount){
+  let rows = ["طريقة الدفع," + Array.from({length:daysCount},(_,i)=>i+1).join(",")];
+  PAYMENT_METHODS.forEach(m=>{
+    let row = [m];
+    for(let d=1; d<=daysCount; d++){
+      const e = doc.entries[dayKey(d)] || {};
+      row.push(e[m]!==undefined ? e[m] : "");
+    }
+    rows.push(row.join(","));
+  });
+  let net = ["Net Sales"];
+  for(let d=1; d<=daysCount; d++) net.push(dayTotal(doc,d));
+  rows.push(net.join(","));
+  const csv = "\uFEFF" + rows.join("\n");
+  const mKey = monthKeyOf(financeYear, financeMonth);
+  if(downloadsApi){
+    try{ await downloadsApi.save({filename:`${code}_${mKey}.csv`, data:csv}); return; }catch(e){}
+  }
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${code}_${mKey}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ======================= ADMIN DASHBOARD (account & password support) ======================= */
+async function renderAdminDashboard(){
+  renderShell(
+    [{id:"accounts", icon:"👤", label:"حسابات الفروع", action:"renderAdminDashboard()"}],
+    "accounts", "الدعم الفني",
+    `<div class="loading-msg">جاري تحميل الحسابات…</div>`
+  );
+  const authMap = await getAllAuthDocs();
+  const inner = document.getElementById("mainInner");
+  inner.innerHTML = `
+    <div class="topbar"><div><h2>حسابات الفروع</h2><p class="muted" style="margin:2px 0 0;">إعادة تعيين كلمة السر لأي فرع نسيها فريقه</p></div></div>
+    <div class="card">
+      <div class="grid-wrap"><table style="min-width:500px;">
+        <thead><tr><th style="padding:10px;">الفرع</th><th style="padding:10px;">الحالة</th><th style="padding:10px;">إجراء</th></tr></thead>
+        <tbody>
+          ${BRANCHES.map(code=>{
+            const a = authMap[code];
+            const has = a && a.passwordHash;
+            return `<tr>
+              <td style="padding:10px;font-weight:700;">${esc(code)}</td>
+              <td style="padding:10px;">${has?'<span class="tag green">لديه حساب</span>':'<span class="tag gray">لسه ما عملش حساب</span>'}</td>
+              <td style="padding:10px;">${has ? `<button class="secondary" onclick="resetBranchPassword('${code}')">إعادة تعيين كلمة السر</button>` : '<span class="muted" style="font-size:12px;">لا يوجد شيء لإعادة تعيينه</span>'}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>
+      <p class="hint" style="margin-top:12px;">إعادة التعيين بتمسح كلمة السر الحالية فقط (من غير ما تلمس بيانات المبيعات)، وبعدها الفرع يدخل بكوده من شاشة الدخول ويعمل كلمة سر جديدة من نفس المكان.</p>
+    </div>
+    <div class="card">
+      <h3>مسح بيانات شهر</h3>
+      <p class="hint">اختار السنة والشهر ثم اضغط "مسح الشهر" — بينعمل بيه موافقتين وتأكيد، وبيتمسح الشهر اللي بتختاره انت بس من كل الفروع (المبالغ والملاحظات والمرفقات). باقي الشهور والبيانات لسه محفوظة وثابتة، ومفيش حاجة بتتتمسح تلقائياً.</p>
+      <div class="row" style="margin-top:4px;">
+        <select id="adminDelYear" style="flex:1;"></select>
+        <select id="adminDelMonth" style="flex:1;"></select>
+        <div class="spacer"></div>
+        <button id="adminDelBtn" class="danger" onclick="confirmDeleteAdminMonth()">مسح الشهر</button>
+      </div>
+      <div id="adminDelStatus" style="margin-top:6px;"></div>
+    </div>
+    <div id="modalHost"></div>
+  `;
+  const dy = document.getElementById("adminDelYear");
+  for(let y=CUR_YEAR; y>=202 Day; y--) dy.innerHTML += `<option value="${y}">${y}</option>`;
+  dy.value = String(CUR_YEAR);
+  const dm = document.getElementById("adminDelMonth");
+  for(let mm=1; mm<=12; mm++) dm.innerHTML += `<option value="${mm}">${monthNamesArabic[mm-1] || mm}</option>`;
+  dm.value = String(CUR_MONTH);
+}
+async function resetBranchPassword(code){
+  if(!confirm("متأكد إنك عايز تصفّر كلمة سر فرع " + code + "؟ الفرع هيحتاج يعمل كلمة سر جديدة أول ما يدخل.")) return;
+  await setAuthDoc(code, {passwordHash: null, resetAt: Date.now()});
+  renderAdminDashboard();
+}
+</script>
+</body>
+</html>
